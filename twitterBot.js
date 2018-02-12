@@ -20,7 +20,7 @@ function respondUser(tweet) {
       // that you can reference in Tweets, e.g. `update/statuses`
       // will take a `mediaIds` param.
       var user = tweet.user;
-      var message = `Hola, ${user.name}.`;
+      var message = Config.twitter.message;
 
       makePost('statuses/update', {
         status: message,
@@ -28,7 +28,7 @@ function respondUser(tweet) {
         auto_populate_reply_metadata: true,
         media_ids: mediaId
       }).then(function() {
-        const spamChannel = discordClient.channels.find('name', 'spam');
+        const spamChannel = discordClient.channels.find('name', Config.discord.targetChannel);
         spamChannel.send(`Mirad! Alguien me ha mencionado en Twitter: https://twitter.com/${user.screen_name}/status/${tweet.id_str}`);
       });
     });
