@@ -1,5 +1,6 @@
 module.exports = {
   twitter: {
+    keywords: '',
     auth: {}
   },
   discord: {
@@ -7,6 +8,7 @@ module.exports = {
   }
 }
 
+module.exports.twitter.keywords = '#testingdspbot';
 module.exports.twitter.auth = {
   consumer_key: 'oAEaU3iW55Ar62if2GjMBf7SL',
   consumer_secret: 'cl9caZvt1YxaCBj4do10fRXb3jLMUJsXdeQauSw1fPYHZinfJL',
@@ -15,5 +17,5 @@ module.exports.twitter.auth = {
 }
 
 module.exports.discord.auth = {
-  
+  token: 'NDEyNDAyMzUwODU1MTU5ODA5.DWMawQ.L6blIyfaB3dXNzNd0EBYu8ZP_fQ'
 }
