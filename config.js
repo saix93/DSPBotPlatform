@@ -1,5 +1,5 @@
 var twitter = {
-  message: '( ͡° ͜ʖ ͡°)',
+  message: 'Did I hear my name? ( ͡° ͜ʖ ͡°)',
   keywords: 'Michelangelo,michelangelo',
   auth: {
     consumer_key: 'oAEaU3iW55Ar62if2GjMBf7SL',
