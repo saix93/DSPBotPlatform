@@ -1,126 +1,88 @@
-var fs = require('fs');
-var twitter = require('twitter');
-var config = require('./config.js');
+const Twitter     = require('twitter');
+const config      = require('./config.js');
+const client      = new Twitter(config.twitter.auth);
 
-var connect = new twitter(config.twitter.auth)
+const pathToMovie = `${__dirname}/turtle.gif`;
+const mediaType   = 'image/gif';
+const mediaData   = require('fs').readFileSync(pathToMovie);
+const mediaSize   = require('fs').statSync(pathToMovie).size;
 
-var keywords = {track: '#testingdspbot'};
-var stream = connect.stream('statuses/filter', keywords);
+const keywords = {track: '#testingdspbot'};
+const stream = client.stream('statuses/filter', keywords);
 
 function respondUser(tweet) {
-  var gifPath = `${__dirname}/turtle.gif`;
+  initUpload() // Declare that you wish to upload some media
+    .then(appendUpload) // Send the data for the media
+    .then(finalizeUpload) // Declare that you are done uploading chunks
+    .then(mediaId => {
+      // You now have an uploaded movie/animated gif
+      // that you can reference in Tweets, e.g. `update/statuses`
+      // will take a `mediaIds` param.
+      var user = tweet.user;
+      var message = `Hola, ${user.name}.`;
 
-  fs.stat(gifPath, function(err, gifStat) {
-    if (err) {
-      console.log("Error en gif");
-      console.log(err);
-    } else {
-      console.log("Sabemos el tamaño del gif:");
-      console.log(gifStat.size);
-      console.log("--------------------------");
-      // Se sube el gif a twitter
-      var mediaConfig = {
-        Name: "myGif",
-        command: "INIT",
-        total_bytes: gifStat.size,
-        media_type: "image/gif",
-        media_category: "tweet_gif"
+      makePost('statuses/update', {
+        status: message,
+        in_reply_to_status_id: tweet.id_str,
+        auto_populate_reply_metadata: true,
+        media_ids: mediaId
+      }).then(data => data.media_id_string);
+    });
+}
+
+/**
+ * Step 1 of 3: Initialize a media upload
+ * @return Promise resolving to String mediaId
+ */
+function initUpload() {
+  return makePost('media/upload', {
+    command    : 'INIT',
+    total_bytes: mediaSize,
+    media_type : mediaType,
+  }).then(data => data.media_id_string);
+}
+
+/**
+ * Step 2 of 3: Append file chunk
+ * @param String mediaId    Reference to media object being uploaded
+ * @return Promise resolving to String mediaId (for chaining)
+ */
+function appendUpload(mediaId) {
+  return makePost('media/upload', {
+    command      : 'APPEND',
+    media_id     : mediaId,
+    media        : mediaData,
+    segment_index: 0
+  }).then(data => mediaId);
+}
+
+/**
+ * Step 3 of 3: Finalize upload
+ * @param String mediaId   Reference to media
+ * @return Promise resolving to mediaId (for chaining)
+ */
+function finalizeUpload(mediaId) {
+  return makePost('media/upload', {
+    command : 'FINALIZE',
+    media_id: mediaId
+  }).then(data => mediaId);
+}
+
+/**
+ * (Utility function) Send a POST request to the Twitter API
+ * @param String endpoint  e.g. 'statuses/upload'
+ * @param Object params    Params object to send
+ * @return Promise         Rejects if response is error
+ */
+function makePost(endpoint, params) {
+  return new Promise((resolve, reject) => {
+    client.post(endpoint, params, (error, data, response) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(data);
       }
-
-      var segmentIndex = 0;
-
-      connect.post('media/upload', mediaConfig, function(err, init) {
-        if (err) {
-          console.log("Error en init");
-          console.log(err);
-        } else {
-          console.log("Se ha llamado a init");
-          console.log(init);
-          console.log("--------------------------");
-          var fd = fs.openSync(gifPath, 'r');
-
-          newChunk(init, fd);
-        }
-      });
-
-      function newChunk(init, fd) {
-        var CHUNK_SIZE = 65536;
-        var buffer = new Buffer(CHUNK_SIZE);
-        var gifData;
-
-        console.log("Este es el estado del indice");
-        console.log(segmentIndex);
-        console.log("--------------------------");
-        var nread = fs.readSync(fd, buffer, 0, CHUNK_SIZE, CHUNK_SIZE * segmentIndex);
-
-        if (nread === 0) {
-          var finalizeConf = {
-            Name: "myGif",
-            command: "FINALIZE",
-            media_id: init.media_id_string
-          }
-
-          connect.post('media/upload', finalizeConf, function(err, response) {
-            if (err) {
-              console.log("Error en finalize");
-              console.log(err);
-            } else {
-              console.log("Se ha llamado a finalize");
-              console.log(response);
-              console.log("--------------------------");
-              // Se construye el tweet de respuesta al usuario
-
-              var user = tweet.user;
-
-              var message = `Hola, ${user.name}.`;
-
-              var responseTweet = {
-                status: message,
-                in_reply_to_status_id: tweet.id_str,
-                auto_populate_reply_metadata: true,
-                media_ids: init.media_id_string
-              };
-
-              connect.post('statuses/update', responseTweet, function(err, response) {
-                if (err) {
-                  console.log("Error en tweet");
-                  console.log(err);
-                } else {
-                  console.log('Responded! - tweet id: ' + tweet.id_str);
-                }
-              });
-            }
-          });
-        } else {
-          if (nread < CHUNK_SIZE) {
-            gifData = buffer.slice(0, nread);
-          } else {
-            gifData = buffer;
-          }
-
-          var appendConf = {
-            Name: "myGif",
-            command: "APPEND",
-            media_id: init.media_id_string,
-            media: gifData.toString('base64'),
-            segment_index: segmentIndex
-          }
-
-          connect.post('media/upload', appendConf, function(err, response) {
-            if (err) {
-              console.log("Error en append");
-              console.log(err);
-            } else {
-              console.log("Se ha llamado a append");
-              console.log(response);
-              console.log("--------------------------");
-              segmentIndex++;
-              newChunk(init, fd);
-            }
-          });
-        }
-      }
-    }
+    });
   });
 }
 
